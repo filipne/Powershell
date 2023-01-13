@@ -45,19 +45,20 @@
 
 
 param(
-   	[parameter(Position=0,Mandatory=$false,ValueFromPipeline=$true,HelpMessage="Input List ")]
+   	[parameter(Position = 0, Mandatory = $false,ValueFromPipeline = $true,HelpMessage = "Input List ")]
 	$Items,
-	[parameter(Position=1,Mandatory=$false,ValueFromPipeline=$false,HelpMessage="The name of the Item field to read from a CSV file ")]
+	[parameter(Position = 1, Mandatory = $false,ValueFromPipeline= $false,HelpMessage = "The name of the Item field to read from a CSV file ")]
 	[string]$CSVItemField="*",
-	[parameter(Position=2,Mandatory=$false,ValueFromPipeline=$true,HelpMessage="Do not clean temp file")]
+	[parameter(Position=2, Mandatory = $false,ValueFromPipeline= $true,HelpMessage = "Do not clean temp file")]
 	[switch]$no_temp_file_clean,
-	[parameter(Position=3,Mandatory=$false,ValueFromPipeline=$true,HelpMessage="Do not order")]
-	[switch]$keep_order
+	[parameter(Position = 3, Mandatory = $false,ValueFromPipeline=$true,HelpMessage = "Do not order")]
+	[switch]$keep_order,
+	[parameter(Position = 4, Mandatory = $false,ValueFromPipeline = $true,HelpMessage = "CSVfilePath")]
+	$CSVfilePath
 )
 	
 	begin 
 	{
-	
 			if ( $MyInvocation.ScriptName  )
 		    {
 				   Write-Host ( $MyInvocation  | ft  -Wrap `
@@ -66,7 +67,6 @@ param(
 				   | Out-String).trim() -foregroundcolor DarkCyan
 					
 					Write-Host ""
-			
 			}
 			else
 			{
@@ -75,12 +75,17 @@ param(
 					#Write-Host ""
 			}
 			
+			if ( $CSVfilePath )
+			{
+			
+				$Items = "^"
+			
+			}
 			
 			
 			$dirname = "Temp"
 			if( !(Test-Path $dirname ) ) { New-Item -Name $dirname -ItemType Directory | out-Null  }
-			
-			
+		
 			$TXTFile = "Temp\List.txt"
 			
 			if( !(Test-Path $TXTFile ) ) { New-Item -Name $TXTFile -ItemType File | out-Null }
@@ -89,7 +94,6 @@ param(
 			$AllItemsTrim  =@()
 				
 			$AllItems  | Write-Verbose
-			
 	
 	}
 
@@ -100,24 +104,29 @@ param(
 	
 		function fRead-List ( $Items )
 		{
+			Write-Verbose " fRead-List: $Items  "
+			
 			#$Items | Write-Verbose 
 			
 			#Write-Host "fRead-List " -ForegroundColor Magenta							
 										
 			if(!$Items )
 			{			
+				Write-Verbose " First prompt "
+				
 				# First prompt
 							
-				Write-Host "`r`n Enter Item(s) (separated by comma)`r`n `"^`" to paste in '$TXTFile'   `r`n <ENTER> to import from CSV or TXT " -ForegroundColor Blue -BackgroundColor Gray 
+				Write-Host "`r`n Type/Paste Item(s) (separated by comma)         `r`n <ENTER> to open and type/paste in'$TXTFile'`r`n `"^`" + <ENTER> to import from a CSV or TXT file  " -ForegroundColor Blue -BackgroundColor Gray 
 				Write-Host "`r`n [Read-List] " -NoNewline -ForegroundColor Blue -BackgroundColor Gray 
 				Write-Host " " -NoNewline
 				$Items = read-host -prompt " "  
 				
 				$Items = $Items.Replace(";", ",")
 				
-				if ( $Items  -eq "^" )
+				#if ( $Items  -eq "^" )
+				if(!$Items )
 				{
-						# "^" to import from the Notapad file
+						# "^" to import from the Notepad file
 				
 						Write-Host ""
 						Write-Host " Requested import  from $TXTFile "   -ForegroundColor Cyan	-BackgroundColor	Blue
@@ -152,18 +161,25 @@ param(
 						Clear-Content $TXTFile
 				
 				}
-				elseif(!$Items )
+				#elseif(!$Items )
+				elseif ( $Items  -eq "^" )
 				{ 
 					# Second prompt for CSV or List.txt import
-		
-					Write-Host ""
-					Write-Host " Enter the full path to the CSV file" -ForegroundColor Blue -BackgroundColor Gray -NoNewline
-					Write-Host " " -NoNewline
-					$Path = read-host -prompt " "
+					
+					if ( !$CSVfilePath )
+					{
+						Write-Host ""
+						Write-Host " Enter the full path to the CSV file " -ForegroundColor Blue -BackgroundColor Gray -NoNewline
+						Write-Host " " -NoNewline
+						$Path = read-host -prompt " "
+					
+					}
 					
 					if($Path)
 					{
 							# Import from  file
+							
+							$Path = $Path.Trim()
 							
 							if ( $Path -eq "^" )
 							{
@@ -223,57 +239,353 @@ param(
 
 										$ItemsFromFile = @()
 										
-										Write-Host ""
-										Write-Host "Importing content from CSV file "   -ForegroundColor Cyan	-BackgroundColor	Blue -NoNewline
-										Write-Host "  " -NoNewline
-										Write-Host " $Path"   -ForegroundColor Cyan
-										Write-Host ""
-										Write-Host "`$ItemsFromCSVFile  =  Import-Csv  $Path " -ForegroundColor Yellow
-																		 	 
-										$ItemsFromCSVFile = Import-Csv  $Path 
 										
-										$GroupMemberscount = $ItemsFromCSVFile.count
+										Write-Host "Path: $Path" -ForegroundColor Magenta
 										
-										Write-Host "`$ItemsFromCSVFileProperties =  `$ItemsFromCSVFile| Get-Member -ErrorAction SilentlyContinue | ? { `$_.MemberType -match 'Property'} | select Name, MemberType" -ForegroundColor Yellow
+										if ( $Path.EndsWith(".csv") ) 
+										{
+											Write-Host ""
+											Write-Host "Importing content from CSV file "   -ForegroundColor Cyan	-BackgroundColor	Blue -NoNewline
+											Write-Host "  " -NoNewline
+											Write-Host " $Path"   -ForegroundColor Cyan
+											Write-Host ""
+											Write-Host "`$ItemsFromCSVFile  =  Import-Csv  $Path " -ForegroundColor Yellow
+																			 	 
+											$ItemsFromCSVFile = Import-Csv  $Path 
+											
+											$GroupMemberscount = $ItemsFromCSVFile.count
+											
+											Write-Host "`$ItemsFromCSVFileProperties =  `$ItemsFromCSVFile| Get-Member -ErrorAction SilentlyContinue | ? { `$_.MemberType -match 'Property'} | select Name, MemberType" -ForegroundColor Yellow
+											
+											$ItemsFromCSVFileProperties =  $ItemsFromCSVFile | Get-Member -ErrorAction SilentlyContinue | ? { $_.MemberType -match "Property"} | select Name, MemberType
+											
+											Write-Host ""
+											Write-Host ( $ItemsFromCSVFileProperties | ft -AutoSize  | Out-String ) -foregroundcolor Cyan
+											Write-Host ""
+											
+											$totalCount = 0
+											
+											if ($CSVItemField  -eq "*" )
+											{
+																
+											}
+											
+																			
+											$ItemsFromCSVFile | 
+											% {
+									
+													#$Name = $($ItemsFromCSVFileProperties[1].Name)
+
+													Write-Host "`$totalCount++" -ForegroundColor Yellow
+													
+													$totalCount++
+																		
+													#write-host "$([string]::Format( "`r {0:d3}{1:d3}{2:s50}" ,  "[$totalCount/$GroupMemberscount] " ," $($ItemsFromCSVFileProperties[0].Name): $($_.$($ItemsFromCSVFileProperties[0].Name)) ; $($ItemsFromCSVFileProperties[1].Name): $($_.$($ItemsFromCSVFileProperties[1].Name)) ; " , "$($ItemsFromCSVFileProperties[2].Name): $($_.$($ItemsFromCSVFileProperties[2].Name))				" )  ) "   -ForegroundColor Cyan	-BackgroundColor Blue -nonewline
+													write-host " [$totalCount/$GroupMemberscount], $($ItemsFromCSVFileProperties[0].Name): $($_.$($ItemsFromCSVFileProperties[0].Name)) ; $($ItemsFromCSVFileProperties[1].Name): $($_.$($ItemsFromCSVFileProperties[1].Name)) , $($ItemsFromCSVFileProperties[2].Name): $($_.$($ItemsFromCSVFileProperties[2].Name)) )  ) "   -ForegroundColor Cyan	-BackgroundColor Blue 
+													
+													
+													if ($CSVItemField  -eq "*" )
+													{
+														$ItemsFromFile += $_
+													}
+													else
+													{ 	$ItemsFromFile +=  $_.$CSVItemField  }
+																
+											
+												}
 										
-										$ItemsFromCSVFileProperties =  $ItemsFromCSVFile | Get-Member -ErrorAction SilentlyContinue | ? { $_.MemberType -match "Property"} | select Name, MemberType
+											$script:from_csv = $true
 										
-										Write-Host ""
-										Write-Host ( $ItemsFromCSVFileProperties | ft -AutoSize  | Out-String ) -foregroundcolor Cyan
-										Write-Host ""
+										} # if ( $path.EndsWith(".csv") ) 
+										elseif ( $Path.EndsWith(".txt")  )
+										{
+												Write-Host ""
+												Write-Host "Importing content from TXT file "   -ForegroundColor Cyan	-BackgroundColor	Blue -NoNewline
+												Write-Host "  " -NoNewline
+												Write-Host " $Path"   -ForegroundColor Cyan
+												Write-Host ""
+																						
+												#$ItemsFromFile = $Content
+												
 										
-										$totalCount = 0
-										
-										if ($CSVItemField  -eq "*" )
+												$Content | 
+												%{
+													
+													if ( $_ )
+													{
+														$ItemsFromFile += $_
+													}
+											
+												}
+									
+										} # elseif ( $Path.EndsWith(".txt")  )
+										else
 										{
 										
-										
+											Write-Host ""
+											Write-Host "  WARNING : File $Path is not CSV or TXT ! Exiting ..." -NoNewline -ForegroundColor	Red	-BackgroundColor	yellow
+											Write-Host "  :  "  -ForegroundColor	Red	-BackgroundColor	yellow
+											Write-Host ""
 										
 										}
 										
-																		
-										$ItemsFromCSVFile | 
-										% {
+									
+										#$AllItems += $ItemsFromFile
+										$AllItems = $ItemsFromFile
+									
+									}
+									else
+									{
+											Write-Host ""
+											Write-Host "  WARNING : No content read, file empty ! Exiting ..." -NoNewline -ForegroundColor	Red	-BackgroundColor	yellow
+											Write-Host "  :  "  -ForegroundColor	Red	-BackgroundColor	yellow
+											Write-Host ""
+									}
 								
-												#$Name = $($ItemsFromCSVFileProperties[1].Name)
+						} #if($Path)
+				        else
+						{
+							Write-Host ""
+							Write-Host "	" -NoNewline
+							Write-Host "WARNING: Not a  valid path! Exiting.. " -ForegroundColor  Blue	-BackgroundColor	Yellow
+			       		 }
+		
+					}
+					else
+					{
+						# No Path provided 
+						
+						Write-Host ""
+						Write-Host "	" -NoNewline
+						Write-Host "  ATTENTION : No Parth provided " -ForegroundColor  Blue	-BackgroundColor	Yellow
+			
+					
+					}
+				
+				} # elseif(!$Items )
+				else 
+				{ 	
+						$ItemsFromList = $Items.Split(",") 	
+						
+						#Write-Verbose $ItemsFromList
+						
+						#$AllItems += $ItemsFromList
+						$AllItems = $ItemsFromList
+					
+				}
+			
+				
+			}
+			elseif ( $Items  -eq "^" )
+			{
+				Write-Verbose "Items is '^' "
+				
+				<#
+				Write-Host ""
+				Write-Host " Requested import  from $TXTFile "   -ForegroundColor Cyan	-BackgroundColor	Blue
+				Write-Host ""
+				
+				notepad $TXTFile 
+				
+				$Confirm  = $true
+			
+				while ($Confirm )
+				{ 
+					
+					Write-Host ""
+					Write-Host  "CTRL + C to Cancel, to Import from $TXTFile press  ENTER " -ForegroundColor Blue -BackgroundColor Gray -NoNewline
+					$Confirm  = Read-Host " "
+														
+					#$Confirm = read-host -prompt "|#| CTRL + C to Cancel, to import from $TXTFile press >> ENTER << -->> "
+				}
+				
+				Write-Host ""
+				Write-Host "Importing content from $TXTFile "   -ForegroundColor Cyan	-BackgroundColor	Blue
+				Write-Host ""
+				Write-Host " `$ItemsFromFile= Get-Content $TXTFile" -ForegroundColor Yellow
+				Write-Host ""
+											
+				$ItemsFromFile = Get-Content $TXTFile 
+				
+				$ItemsFromFile | Write-Verbose
+				
+				$AllItems += $ItemsFromFile
+				
+				Clear-Content $TXTFile
+				
+				#>
+		
+				if ( !$CSVfilePath )
+				{
+		
+					Write-Host ""
+					Write-Host " Enter the full path to the CSV file " -ForegroundColor Blue -BackgroundColor Gray -NoNewline
+					Write-Host " " -NoNewline
+					$Path = read-host -prompt " "
+				
+				}
+				else
+				{
+				
+					$Path = $CSVfilePath
+				
+				}
+				
+				if($Path)
+				{
+						# Import from  file
+							
+					if ( $Path -eq "^" )
+					{
+						# "^" to go back to import from the Notapad file
+				
+						Write-Host ""
+						Write-Host " Requested import  from $TXTFile "   -ForegroundColor Cyan	-BackgroundColor	Blue
+						Write-Host ""
+						
+						notepad $TXTFile 
+						
+						$Confirm  = $true
+					
+						while ($Confirm )
+						{ 
+							
+							Write-Host ""
+							Write-Host  "CTRL + C to Cancel, to Import from $TXTFile press  ENTER " -ForegroundColor Blue -BackgroundColor Gray -NoNewline
+							$Confirm  = Read-Host " "
+																
+							#$Confirm = read-host -prompt "|#| CTRL + C to Cancel, to import from $TXTFile press >> ENTER << -->> "
+						}
+						
+						Write-Host ""
+						Write-Host "Importing content from $TXTFile "   -ForegroundColor Cyan	-BackgroundColor	Blue
+						Write-Host ""
+						Write-Host " `$ItemsFromFile= Get-Content $TXTFile" -ForegroundColor Yellow
+						Write-Host ""
+													
+						$ItemsFromFile = Get-Content $TXTFile 
+						
+						$ItemsFromFile | Write-Verbose
+						
+						$AllItems += $ItemsFromFile
+						
+						Clear-Content $TXTFile
+					
+				}
+					elseif( Test-Path $Path )
+			        {
+									# Import from a CSV file
+									
+									$script:Path = $Path
+									
+									$Path = $Path.Trim()
+									
+									Write-Host "" 
+									
+									Write-Host "`$Content = Get-Content  '$Path' -ErrorAction SilentlyContinue " -ForegroundColor Yellow
+						
+									$Content = Get-Content  $Path -ErrorAction SilentlyContinue 
+									 	
+									Write-Host ""
+									Write-Host "[$($Content.count)] Items found in  $Path "
+									
+																		
+									if( $Content )
+									{
 
-												$totalCount++
-																	
-												write-host "$([string]::Format( "`r {0:d3}{1:d3}{2:s50}" ,  "[$totalCount/$GroupMemberscount] " ," $($ItemsFromCSVFileProperties[0].Name): $($_.$($ItemsFromCSVFileProperties[0].Name)) ; $($ItemsFromCSVFileProperties[1].Name): $($_.$($ItemsFromCSVFileProperties[1].Name)) ; " , "$($ItemsFromCSVFileProperties[2].Name): $($_.$($ItemsFromCSVFileProperties[2].Name))					" )  ) "   -ForegroundColor Cyan	-BackgroundColor Blue -nonewline
-												
-												if ($CSVItemField  -eq "*" )
-												{
-													$ItemsFromFile += $_
-												}
-												else
-												{ 	$ItemsFromFile +=  $_.$CSVItemField  }
-															
+										$ItemsFromFile = @()
 										
-											}
+										if(	$Path.EndsWith(".csv") )
+										{
+												Write-Host ""
+												Write-Host "Importing content from CSV file "   -ForegroundColor Cyan	-BackgroundColor	Blue -NoNewline
+												Write-Host "  " -NoNewline
+												Write-Host " $Path"   -ForegroundColor Cyan
+												Write-Host ""
+												Write-Host "`$ItemsFromCSVFile  =  Import-Csv  $Path " -ForegroundColor Yellow
+																				 	 
+												$ItemsFromCSVFile = Import-Csv  $Path 
+												
+												$GroupMemberscount = $ItemsFromCSVFile.count
+												
+												Write-Host "`$ItemsFromCSVFileProperties =  `$ItemsFromCSVFile| Get-Member -ErrorAction SilentlyContinue | ? { `$_.MemberType -match 'Property'} | select Name, MemberType" -ForegroundColor Yellow
+												
+												$ItemsFromCSVFileProperties =  $ItemsFromCSVFile | Get-Member -ErrorAction SilentlyContinue | ? { $_.MemberType -match "Property"} | select Name, MemberType
+												
+												Write-Host ""
+												Write-Host ( $ItemsFromCSVFileProperties | ft -AutoSize  | Out-String ) -foregroundcolor Cyan
+												Write-Host ""
+												
+												$totalCount = 0
+												
+												if ($CSVItemField  -eq "*" ){ 	}
+												
+																				
+												$ItemsFromCSVFile | 
+												% {
+										
+														#$Name = $($ItemsFromCSVFileProperties[1].Name)
+														
+														#Write-Host "`$totalCount++" -ForegroundColor Yellow 
+
+														$totalCount++
+																			
+														#write-host "$([string]::Format( "`r {0:d3}{1:d3}{2:s50}" ,  "[$totalCount/$GroupMemberscount] " ," $($ItemsFromCSVFileProperties[0].Name): $($_.$($ItemsFromCSVFileProperties[0].Name)) ; $($ItemsFromCSVFileProperties[1].Name): $($_.$($ItemsFromCSVFileProperties[1].Name)) ; " , "$($ItemsFromCSVFileProperties[2].Name): $($_.$($ItemsFromCSVFileProperties[2].Name))					" )  ) "   -ForegroundColor Cyan	-BackgroundColor Blue -nonewline
+														
+														#write-host "   ' `r {0} {1}.' -f "[$totalCount/$GroupMemberscount] " , "$($ItemsFromCSVFileProperties[0].Name): $($_.$($ItemsFromCSVFileProperties[0].Name)), $($ItemsFromCSVFileProperties[1].Name): $($_.$($ItemsFromCSVFileProperties[1].Name)) " )) " -ForegroundColor Cyan	-BackgroundColor Blue -nonewline
+														
+														write-host "$([string]::Format( "`r {0:d3}{1:d3}" , "[$totalCount/$GroupMemberscount] " ," $($ItemsFromCSVFileProperties[0].Name): $($_.$($ItemsFromCSVFileProperties[0].Name))                      ")  ) "   -ForegroundColor Cyan	-BackgroundColor Blue -NoNewline
+
+														
+														#Write-Host "[$totalCount/$GroupMemberscount]  $($ItemsFromCSVFileProperties[0].Name): $($_.$($ItemsFromCSVFileProperties[0].Name)), $($ItemsFromCSVFileProperties[1].Name): $($_.$($ItemsFromCSVFileProperties[1].Name)) , $($ItemsFromCSVFileProperties[2].Name): $($_.$($ItemsFromCSVFileProperties[2].Name))  " -ForegroundColor Magenta
+														
+														if ($CSVItemField  -eq "*" )
+														{
+															$ItemsFromFile += $_
+														}
+														else
+														{ 	$ItemsFromFile +=  $_.$CSVItemField  }
+																	
+												
+													}
+											
+												$script:from_csv = $true
+												
+										} # if(	$Path.EndsWith(".csv") )
+										elseif ( $Path.EndsWith(".txt")  )
+										{
+												Write-Host ""
+												Write-Host "Importing content from TXT file "   -ForegroundColor Cyan	-BackgroundColor	Blue -NoNewline
+												Write-Host "  " -NoNewline
+												Write-Host " $Path"   -ForegroundColor Cyan
+												Write-Host ""
+																						
+												#$ItemsFromFile = $Content
+												
+										
+												$Content | 
+												%{
+													
+													if ( $_ )
+													{
+														$ItemsFromFile += $_
+													}
+											
+												}
 									
-										$script:from_csv = $true
+										} # elseif ( $Path.EndsWith(".txt")  )
+										else
+										{
+										
+											Write-Host ""
+											Write-Host "  WARNING : File $Path is not CSV or TXT ! Exiting ..." -NoNewline -ForegroundColor	Red	-BackgroundColor	yellow
+											Write-Host "  :  "  -ForegroundColor	Red	-BackgroundColor	yellow
+											Write-Host ""
+										
+										}
 									
-										$AllItems += $ItemsFromFile
+										#$AllItems += $ItemsFromFile
+										$AllItems = $ItemsFromFile
 									
 									}
 									else
@@ -299,26 +611,14 @@ param(
 						
 						Write-Host ""
 						Write-Host "	" -NoNewline
-						Write-Host "  ATTENTION : No Parth provided " -ForegroundColor  Blue	-BackgroundColor	Yellow
-											
-					
+						Write-Host "  ATTENTION : No Path provided " -ForegroundColor  Blue	-BackgroundColor	Yellow
+						
 					}
-				
-				} # elseif(!$Items )
-				else 
-				{ 	
-						$ItemsFromList = $Items.Split(",") 	
-						
-						#Write-Verbose $ItemsFromList
-						
-						$AllItems += $ItemsFromList
 					
-				}
-			
-				
 			}
 			else
 			{ 	
+				Write-Verbose "Items  provided as parameter"
 			
 				if( $Items.gettype().Name -like "String")
 				{
@@ -442,7 +742,9 @@ param(
 				$AllItemsTrim | Set-Content $TXTFile -Encoding Unicode 
 			}
 			
-			Write-Host "return" -ForegroundColor Yellow
+			Write-Host "return `$AllItemsTrim" -ForegroundColor Yellow
+			Write-Host ""		
+			
 			
 			return $AllItemsTrim
 		
